@@ -1,0 +1,57 @@
+name:                bloodhound-extras
+version:             0.0.0.1
+synopsis:            A collection of useful utilities for working with elastic search.
+description:         Please see README.md
+license:             BSD3
+license-file:        LICENSE
+author:              Michael Xavier
+maintainer:          michael.xavier@soostone.com
+copyright:           2015 Soostone Inc
+category:            Web
+build-type:          Simple
+cabal-version:       >=1.10
+
+flag lib-Werror
+  default: False
+  manual: True
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Database.Bloodhound.Extras
+  build-depends:       base >= 4.6 && < 5
+                     , bloodhound >= 0.9.0.0 && < 0.11
+                     , conduit >= 1.2 && < 1.3
+                     , aeson >= 0.10.0 && < 0.11
+                     , vector
+                     , mtl
+                     , http-client
+                     , exceptions
+                     , http-types
+                     , time
+  default-language:    Haskell2010
+
+  if flag(lib-Werror)
+    ghc-options: -Werror
+
+  ghc-options: -Wall
+
+test-suite test
+  type:                exitcode-stdio-1.0
+  hs-source-dirs:      test
+  main-is:             Main.hs
+  build-depends:       base
+                     , bloodhound-extras
+                     , tasty >= 0.10
+                     , tasty-hunit >= 0.9
+                     , aeson
+                     , bloodhound
+                     , text
+                     , http-client
+                     , http-types
+                     , conduit
+  default-language:    Haskell2010
+
+  if flag(lib-Werror)
+    ghc-options: -Werror
+
+  ghc-options: -Wall

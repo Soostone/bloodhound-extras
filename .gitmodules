@@ -1,0 +1,3 @@
+[submodule "deps/bloodhound"]
+	path = deps/bloodhound
+	url = git@github.com:Soostone/bloodhound.git
