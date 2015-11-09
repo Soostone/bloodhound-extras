@@ -10,6 +10,7 @@ module Database.Bloodhound.Extras
 
 
 -------------------------------------------------------------------------------
+import           Control.Applicative
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.State
