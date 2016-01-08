@@ -1,11 +1,11 @@
 resolver: lts-3.10
 packages:
 - '.'
-- 'deps/bloodhound'
 extra-deps:
 - aeson-0.10.0.0
 - attoparsec-0.13.0.1
 - doctest-prop-0.2.0.1
 - quickcheck-properties-0.1
+- bloodhound-0.10.0.0
 flags: {}
 extra-package-dbs: []
