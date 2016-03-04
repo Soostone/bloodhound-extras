@@ -21,9 +21,9 @@ library
   hs-source-dirs:      src
   exposed-modules:     Database.Bloodhound.Extras
   build-depends:       base >= 4.6 && < 5
-                     , bloodhound >= 0.9.0.0 && < 0.11
+                     , bloodhound >= 0.9.0.0 && < 0.12
                      , conduit >= 1.2 && < 1.3
-                     , aeson >= 0.10.0 && < 0.11
+                     , aeson >= 0.10.0 && < 0.12
                      , vector
                      , mtl
                      , http-client
