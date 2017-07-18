@@ -38,10 +38,10 @@ install:
 # around some quirks in Travis's terminal implementation.
 script:
   - stack $ARGS setup
+  - stack $ARGS build -j2 --fast --no-terminal
   # Prevent Inactivity timeouts. See https://github.com/travis-ci/travis-ci/issues/7020#issuecomment-288961580
   - travis_wait 45 sleep 1800 &
-  - stack $ARGS test --no-terminal --haddock --no-haddock-deps --test-arguments="$ESTESTARGS"
-  - stack $ARGS build
+  - stack $ARGS test --fast --no-terminal --haddock --no-haddock-deps --test-arguments="$ESTESTARGS"
   - stack $ARGS sdist
 
 # Caching so the next build will be fast too.
