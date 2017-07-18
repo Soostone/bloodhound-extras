@@ -4,14 +4,18 @@ module Main
 
 
 -------------------------------------------------------------------------------
+import           Data.Proxy
 import           Test.Tasty
+import           Test.Tasty.Options
 -------------------------------------------------------------------------------
 import qualified Database.Bloodhound.Tests.Extras
 -------------------------------------------------------------------------------
 
 
 main :: IO ()
-main = defaultMain tests
+main = defaultMainWithIngredients ings tests
+  where
+    ings = (includingOptions [Option (Proxy :: Proxy Database.Bloodhound.Tests.Extras.TestWithESVersion)]):defaultIngredients
 
 
 

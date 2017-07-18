@@ -20,16 +20,18 @@ flag lib-Werror
 library
   hs-source-dirs:      src
   exposed-modules:     Database.Bloodhound.Extras
+                       Database.Bloodhound.Extras.Internal
   build-depends:       base >= 4.6 && < 5
-                     , bloodhound >= 0.9.0.0 && < 0.13
+                     , bloodhound >= 0.13.0.0 && < 0.15
                      , conduit >= 1.2 && < 1.3
-                     , aeson >= 0.10.0 && < 1.1
+                     , aeson >= 0.10.0 && < 1.2
                      , vector
                      , mtl
                      , http-client
                      , exceptions
                      , http-types
                      , time
+                     , bytestring
   default-language:    Haskell2010
 
   if flag(lib-Werror)
@@ -51,6 +53,10 @@ test-suite test
                      , http-client
                      , http-types
                      , conduit
+                     , tagged
+                     , lens
+                     , bytestring
+                     , exceptions
   default-language:    Haskell2010
 
   if flag(lib-Werror)
