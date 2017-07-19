@@ -1,30 +1,32 @@
 {-# LANGUAGE ConstraintKinds     #-}
+{-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE RankNTypes          #-}
 {-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TupleSections       #-}
 {-# LANGUAGE TypeFamilies        #-}
 module Database.Bloodhound.Extras.Internal where
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative    as A
+import           Control.Applicative        as A
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Aeson
-import qualified Data.ByteString.Lazy   as LBS
-import qualified Data.Conduit           as C
+import qualified Data.ByteString.Lazy       as LBS
+import qualified Data.Conduit               as C
 import           Data.Conduit.Lift
-import qualified Data.Conduit.List      as CL
+import qualified Data.Conduit.List          as CL
 import           Data.Monoid
-import           Data.Proxy             (Proxy (..))
+import           Data.Proxy                 (Proxy (..))
 import           Data.Time.Clock
-import qualified Data.Vector            as V
-import qualified Database.V1.Bloodhound as ESV1
-import qualified Database.V5.Bloodhound as ESV5
-import           GHC.Exts               (Constraint)
-import qualified Network.HTTP.Client    as HC
+import qualified Data.Vector                as V
+import qualified Database.V1.Bloodhound     as ESV1
+import qualified Database.V5.Bloodhound     as ESV5
+import           GHC.Exts                   (Constraint)
+import qualified Network.HTTP.Client        as HC
 -------------------------------------------------------------------------------
 
 
@@ -73,7 +75,8 @@ class ESVersion v where
   hitDocId :: proxy v -> Hit v a -> DocId v
   bulk :: MonadBH v m => proxy v -> V.Vector (BulkOperation v) -> m (HC.Response LBS.ByteString)
   parseEsResponse :: (MonadThrow m, FromJSON a) => proxy v -> HC.Response LBS.ByteString -> m (Either (EsError v) a)
-  getInitialScroll :: (MonadBH v m, MonadThrow m) => proxy v -> IndexName v -> MappingName v -> Search v -> m (Maybe (ScrollId v))
+  -- ES5 API actually returns the first page right away, ES1 just returns the scroll id
+  getInitialScroll :: (MonadBH v m, MonadThrow m, FromJSON a) => proxy v -> IndexName v -> MappingName v -> Search v -> m (Maybe (Maybe (SearchResult v a), ScrollId v))
   advanceScroll :: (FromJSON a, MonadBH v m, MonadThrow m) => proxy v -> ScrollId v -> NominalDiffTime -> m (Either (EsError v) (SearchResult v a))
 
 
@@ -111,7 +114,7 @@ instance ESVersion ESV1 where
   hitDocId _ = ESV1.hitDocId
   bulk _ = ESV1.bulk
   parseEsResponse _ = ESV1.parseEsResponse
-  getInitialScroll _ = ESV1.getInitialScroll
+  getInitialScroll _ a b c = fmap (Nothing, )<$> ESV1.getInitialScroll a b c
   advanceScroll _ = ESV1.advanceScroll
 
 
@@ -150,7 +153,13 @@ instance ESVersion ESV5 where
   hitDocId _ = ESV5.hitDocId
   bulk _ = ESV5.bulk
   parseEsResponse _ = ESV5.parseEsResponse
-  getInitialScroll prx a b c = join . hush . fmap (\(r :: SearchResult ESV5 Value) -> scrollId prx r) A.<$> ESV5.getInitialScroll a b c
+  getInitialScroll prx a b c = do
+    res <- ESV5.getInitialScroll a b c
+    pure $ case res of
+      Left _ -> Nothing
+      Right sr -> do
+        scroll <- scrollId prx sr
+        pure (Just sr, scroll)
   advanceScroll _ = ESV5.advanceScroll
 
 
@@ -391,9 +400,14 @@ streamingSearchVersion' prx ixn mn s scroll = evalStateC Nothing go
   where go = do msid <- get
                 case msid of
                   Nothing -> do
-                    misid <- lift (lift (getInitialScroll prx ixn mn s))
-                    case misid of
-                      Just _  -> put misid >> go
+                    res <- lift (lift (getInitialScroll prx ixn mn s))
+                    case res of
+                      Just (mfirstPage, isid) -> do
+                        put (Just isid)
+                        case mfirstPage of
+                          Just firstPage -> C.yield (Right (searchHits prx firstPage))
+                          Nothing -> return ()
+                        go
                       Nothing -> return ()
                   Just sid -> do
                     esr :: Either (EsError v) (SearchResult v a) <- lift (lift (advanceScroll prx sid scroll))
