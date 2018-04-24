@@ -18,7 +18,7 @@ import           Data.ByteString.Lazy                (ByteString)
 import           Data.Conduit
 import qualified Data.Conduit.List                   as CL
 import           Data.List
-import           Data.Monoid
+import           Data.Monoid                         as M
 import           Data.Tagged
 import           Data.Text                           (Text)
 import           Data.Typeable
@@ -229,7 +229,7 @@ search prx = mkSearch
 
 -------------------------------------------------------------------------------
 assertSuccess :: Response ByteString -> Assertion
-assertSuccess reply = assertBool (show stat <> ": " <> show (responseBody reply))
+assertSuccess reply = assertBool (show stat M.<> ": " <> show (responseBody reply))
                                  (ESV1.isSuccess reply)
   where stat = responseStatus reply
 
