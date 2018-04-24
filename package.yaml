@@ -1,0 +1,61 @@
+name: bloodhound-extras
+version: "0.1.0.0"
+synopsis: A collection of useful utilities for working with elastic search.
+description: Please see README.md
+license: BSD3
+license-file: LICENSE
+author: Michael Xavier
+maintainer: michael.xavier@soostone.com
+copyright: 2018 Soostone Inc
+category: Web
+build-type: Simple
+
+flags:
+  lib-Werror:
+    default: false
+    manual: true
+
+when:
+  - condition: flag(lib-Werror)
+    then:
+      ghc-options: -Wall -Werror
+    else:
+      ghc-options: -Wall
+
+library:
+  source-dirs: src
+  exposed-modules:
+    - Database.Bloodhound.Extras
+    - Database.Bloodhound.Extras.Internal
+  dependencies:
+    - base >= 4.6 && < 5
+    - bloodhound >= 0.13.0.0
+    - conduit >= 1.2.8
+    - aeson >= 0.10.0
+    - vector
+    - mtl
+    - http-client
+    - exceptions
+    - http-types
+    - time
+    - bytestring
+
+tests:
+  test:
+    source-dirs: test
+    main: Main.hs
+    dependencies:
+      - base
+      - bloodhound-extras
+      - tasty >= 0.10
+      - tasty-hunit >= 0.9
+      - aeson
+      - bloodhound
+      - text
+      - http-client
+      - http-types
+      - conduit
+      - tagged
+      - lens
+      - bytestring
+      - exceptions
