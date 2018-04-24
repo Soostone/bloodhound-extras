@@ -93,7 +93,7 @@ esTests prx = testGroup "ElasticSearch"
       step "Refreshing"
       assertSuccess =<< runIt (refreshIndex prx ixn')
       step "Searching"
-      dox <- runBH prx bh (streamingSearchVersion prx ixn' mn' search' 1 $$ CL.consume)
+      dox <- runBH prx bh (runConduit (streamingSearchVersion prx ixn' mn' search' 1 .| CL.consume))
       -- can't guarantee order
       (sort . map (hitSource prx) <$> sequence dox) @?= Right [Just doc1, Just doc2]
   ]
@@ -222,14 +222,9 @@ search prx = mkSearch
   Nothing
   Nothing
   Nothing
-  Nothing
-  Nothing
-  False
   (mkFrom prx 0)
   (mkSize prx 10)
   (searchTypeQueryThenFetch prx)
-  Nothing
-  Nothing
 
 
 -------------------------------------------------------------------------------
