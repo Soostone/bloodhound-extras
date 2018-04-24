@@ -23,7 +23,7 @@ library
                        Database.Bloodhound.Extras.Internal
   build-depends:       base >= 4.6 && < 5
                      , bloodhound >= 0.13.0.0
-                     , conduit >= 1.2
+                     , conduit >= 1.2.8
                      , aeson >= 0.10.0
                      , vector
                      , mtl

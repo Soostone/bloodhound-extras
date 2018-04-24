@@ -16,6 +16,10 @@ addons:
 matrix:
   include:
     - env: ARGS="--resolver=nightly" ESVERSION=1.5.2 ESURL=https://download.elastic.co/elasticsearch/elasticsearch ESTESTARGS="--es-version 1"
+    - env: ARGS="--resolver=lts-8" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
+    - env: ARGS="--resolver=lts-9" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
+    - env: ARGS="--resolver=lts-10" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
+    - env: ARGS="--resolver=lts-11" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
     - env: ARGS="--resolver=nightly" ESVERSION=5.5.0 ESURL=https://artifacts.elastic.co/downloads/elasticsearch ESTESTARGS="--es-version 5" ES_JAVA_OPTS="-Xms500m -Xmx750m" JAVA_HOME=/usr/lib/jvm/java-8-oracle
 
 before_install:
@@ -48,3 +52,4 @@ script:
 cache:
   directories:
   - $HOME/.stack
+  - .stack-work

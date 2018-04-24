@@ -1,6 +1,8 @@
-resolver: nightly-2017-07-18
+resolver: lts-11.6
 packages:
 - '.'
 extra-deps: []
-flags: {}
+flags:
+  bloodhound-extras:
+    lib-Werror: true
 extra-package-dbs: []

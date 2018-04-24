@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP                 #-}
 {-# LANGUAGE ConstraintKinds     #-}
 {-# LANGUAGE FlexibleContexts    #-}
 {-# LANGUAGE OverloadedStrings   #-}
@@ -10,23 +11,23 @@ module Database.Bloodhound.Extras.Internal where
 
 
 -------------------------------------------------------------------------------
-import           Control.Applicative        as A
+import           Control.Applicative    as A
 import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.State
 import           Data.Aeson
-import qualified Data.ByteString.Lazy       as LBS
-import qualified Data.Conduit               as C
+import qualified Data.ByteString.Lazy   as LBS
+import qualified Data.Conduit           as C
 import           Data.Conduit.Lift
-import qualified Data.Conduit.List          as CL
+import qualified Data.Conduit.List      as CL
 import           Data.Monoid
-import           Data.Proxy                 (Proxy (..))
+import           Data.Proxy             (Proxy (..))
 import           Data.Time.Clock
-import qualified Data.Vector                as V
-import qualified Database.V1.Bloodhound     as ESV1
-import qualified Database.V5.Bloodhound     as ESV5
-import           GHC.Exts                   (Constraint)
-import qualified Network.HTTP.Client        as HC
+import qualified Data.Vector            as V
+import qualified Database.V1.Bloodhound as ESV1
+import qualified Database.V5.Bloodhound as ESV5
+import           GHC.Exts               (Constraint)
+import qualified Network.HTTP.Client    as HC
 -------------------------------------------------------------------------------
 
 
@@ -58,14 +59,9 @@ class ESVersion v where
     -> Maybe (Query v)
     -> Maybe (Filter v)
     -> Maybe (Sort v)
-    -> Maybe (Aggregations v)
-    -> Maybe (Highlights v)
-    -> Bool
     -> From v
     -> Size v
     -> SearchType v
-    -> Maybe [FieldName v]
-    -> Maybe (Source v)
     -> Search v
   type Hit v :: * -> *
   type DocId v
@@ -105,7 +101,22 @@ instance ESVersion ESV1 where
   searchHits _ = ESV1.searchHits
   scrollId _ = ESV1.scrollId
   type Source ESV1 = ESV1.Source
-  mkSearch _ = ESV1.Search
+  mkSearch _ query filt sort frm sz searchTy = ESV1.Search
+    { queryBody = query
+    , filterBody = filt
+    , sortBody = sort
+    , aggBody = Nothing
+    , highlight = Nothing
+    , trackSortScores = False
+    , from = frm
+    , size = sz
+    , searchType = searchTy
+    , fields = Nothing
+    , source = Nothing
+#if MIN_VERSION_bloodhound(0,15,0)
+    , suggestBody = Nothing
+#endif
+    }
   type Hit ESV1 = ESV1.Hit
   type DocId ESV1 = ESV1.DocId
   type BulkOperation ESV1 = ESV1.BulkOperation
@@ -114,7 +125,7 @@ instance ESVersion ESV1 where
   hitDocId _ = ESV1.hitDocId
   bulk _ = ESV1.bulk
   parseEsResponse _ = ESV1.parseEsResponse
-  getInitialScroll _ a b c = fmap (Nothing, )<$> ESV1.getInitialScroll a b c
+  getInitialScroll _ a b c = fmap (Nothing, ) A.<$> ESV1.getInitialScroll a b c
   advanceScroll _ = ESV1.advanceScroll
 
 
@@ -144,7 +155,22 @@ instance ESVersion ESV5 where
   searchHits _ = ESV5.searchHits
   scrollId _ = ESV5.scrollId
   type Source ESV5 = ESV5.Source
-  mkSearch _ = ESV5.Search
+  mkSearch _ query filt sort frm sz searchTy = ESV5.Search
+    { queryBody = query
+    , filterBody = filt
+    , sortBody = sort
+    , aggBody = Nothing
+    , highlight = Nothing
+    , trackSortScores = False
+    , from = frm
+    , size = sz
+    , searchType = searchTy
+    , fields = Nothing
+    , source = Nothing
+#if MIN_VERSION_bloodhound(0,15,0)
+    , suggestBody = Nothing
+#endif
+    }
   type Hit ESV5 = ESV5.Hit
   type DocId ESV5 = ESV5.DocId
   type BulkOperation ESV5 = ESV5.BulkOperation
@@ -246,21 +272,16 @@ deleteWhereVersion
     -> m (Either (EsError v) Int)
     -- ^ Number of records deleted
 deleteWhereVersion prx ixn mn q f sz scroll = do
-    res <- runExceptT (stream C.$$ CL.foldMapM go)
+    res <- runExceptT (C.runConduit (stream C..| CL.foldMapM go))
     return (getSum <$> (res :: Either (EsError v) (Sum Int)))
   where search = mkSearch
                    prx
                    q
                    f
                    Nothing
-                   Nothing
-                   Nothing
-                   False
                    (mkFrom prx 0)
                    sz
                    (searchTypeQueryThenFetch prx)
-                   Nothing
-                   Nothing
         stream = C.transPipe lift (streamingSearchVersion' prx ixn mn search scroll)
         go (Left e) = ExceptT (return (Left e))
         go (Right shs) = do
@@ -283,7 +304,7 @@ streamingSearch
     -> ESV1.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV1.EsError (ESV1.Hit a))
+    -> C.ConduitM i (Either ESV1.EsError (ESV1.Hit a)) m ()
 streamingSearch = streamingSearchV1
 
 
@@ -298,7 +319,7 @@ streamingSearchV1
     -> ESV1.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV1.EsError (ESV1.Hit a))
+    -> C.ConduitM i (Either ESV1.EsError (ESV1.Hit a)) m ()
 streamingSearchV1 = streamingSearchVersion (Proxy :: Proxy ESV1)
 
 
@@ -313,7 +334,7 @@ streamingSearchV5
     -> ESV5.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV5.EsError (ESV5.Hit a))
+    -> C.ConduitM i (Either ESV5.EsError (ESV5.Hit a)) m ()
 streamingSearchV5 = streamingSearchVersion (Proxy :: Proxy ESV5)
 
 
@@ -330,15 +351,15 @@ streamingSearchVersion
     -> Search v
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either (EsError v) (Hit v a))
-streamingSearchVersion prx ixn mn s scroll = streamingSearchVersion' prx ixn mn s scroll C.=$ C.awaitForever go
+    -> C.ConduitM i (Either (EsError v) (Hit v a)) m ()
+streamingSearchVersion prx ixn mn s scroll = streamingSearchVersion' prx ixn mn s scroll C..| C.awaitForever go
   where go (Left e)   = C.yield (Left e)
         go (Right sh) = mapM_ (C.yield . Right) (hits prx sh)
 
 
 -------------------------------------------------------------------------------
 streamingSearch'
-    :: forall m a. ( ESV1.MonadBH m
+    :: forall i m a. ( ESV1.MonadBH m
        , MonadThrow m
        , FromJSON a
        )
@@ -347,13 +368,13 @@ streamingSearch'
     -> ESV1.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV1.EsError (ESV1.SearchHits a))
+    -> C.ConduitM i (Either ESV1.EsError (ESV1.SearchHits a)) m ()
 streamingSearch' = streamingSearchV1'
 
 
 -------------------------------------------------------------------------------
 streamingSearchV1'
-    :: forall m a. ( ESV1.MonadBH m
+    :: forall i m a. ( ESV1.MonadBH m
        , MonadThrow m
        , FromJSON a
        )
@@ -362,13 +383,13 @@ streamingSearchV1'
     -> ESV1.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV1.EsError (ESV1.SearchHits a))
+    -> C.ConduitM i (Either ESV1.EsError (ESV1.SearchHits a)) m ()
 streamingSearchV1' = streamingSearchVersion' (Proxy :: Proxy ESV1)
 
 
 -------------------------------------------------------------------------------
 streamingSearchV5'
-    :: forall m a. ( ESV5.MonadBH m
+    :: forall i m a. ( ESV5.MonadBH m
        , MonadThrow m
        , FromJSON a
        )
@@ -377,14 +398,14 @@ streamingSearchV5'
     -> ESV5.Search
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either ESV5.EsError (ESV5.SearchHits a))
+    -> C.ConduitM i (Either ESV5.EsError (ESV5.SearchHits a)) m ()
 streamingSearchV5' = streamingSearchVersion' (Proxy :: Proxy ESV5)
 
 
 -------------------------------------------------------------------------------
 -- | Creates a conduit 'Producer' of search hits for the given search.
 streamingSearchVersion'
-    :: forall m a v proxy. ( ESVersion v
+    :: forall i m a v proxy. ( ESVersion v
        , MonadBH v m
        , MonadThrow m
        , FromJSON a
@@ -395,7 +416,7 @@ streamingSearchVersion'
     -> Search v
     -> NominalDiffTime
     -- ^ How long should the scroll be open? 60s is a reasonable default
-    -> C.Producer m (Either (EsError v) (SearchHits v a))
+    -> C.ConduitM i (Either (EsError v) (SearchHits v a)) m ()
 streamingSearchVersion' prx ixn mn s scroll = evalStateC Nothing go
   where go = do msid <- get
                 case msid of
